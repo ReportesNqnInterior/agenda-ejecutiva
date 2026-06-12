@@ -281,7 +281,7 @@ td[contenteditable="true"]:focus {
         </table>
       </div>
 
-      <div style="height:4px"></div>
+      <span id="gen-date" style="display:none"></span>
     </div>
   </div>
 
@@ -495,9 +495,9 @@ function copyTable() {
 function exportExcel() {
   if (!window.XLSX) { alert('XLSX no cargó. Verificá tu conexión.'); return; }
 
-  const ttl  = document.getElementById('agenda-title').textContent;
-  const pers = document.getElementById('agenda-person').textContent;
-  const date = document.getElementById('gen-date').textContent;
+  const ttl  = (document.getElementById('agenda-title')  || {}).textContent || 'Agenda';
+  const pers = (document.getElementById('agenda-person') || {}).textContent || '';
+  const date = new Date().toLocaleDateString('es-AR', { day:'2-digit', month:'long', year:'numeric' });
 
   const wb = XLSX.utils.book_new();
   const wsData = [];
