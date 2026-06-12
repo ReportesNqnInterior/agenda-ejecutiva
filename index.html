@@ -272,7 +272,7 @@ td[contenteditable="true"]:focus {
           <thead>
             <tr>
               <th style="border-radius:6px 0 0 0">📅 Fecha</th>
-              <th>🕐 Horario</th>
+              <th>⏰ Horario</th>
               <th>📌 Evento</th>
               <th style="border-radius:0 6px 0 0">📍 Lugar</th>
             </tr>
@@ -502,16 +502,20 @@ function exportExcel() {
   const wb = XLSX.utils.book_new();
   const wsData = [];
 
-  // Título y metadata
-  wsData.push(['La Anónima S.A. · Agenda ejecutiva']);
-  wsData.push([ttl]);
-  if (pers) wsData.push([pers]);
-  wsData.push([]);
+  // Fila 1: título institucional
+  wsData.push(['LA ANÓNIMA S.A.  ·  Agenda Ejecutiva', '', '', '']);
+  // Fila 2: período
+  wsData.push([ttl, '', '', '']);
+  // Fila 3: persona (si hay)
+  if (pers) wsData.push([pers, '', '', '']);
+  // Fila vacía
+  wsData.push(['', '', '', '']);
 
   // Headers
   wsData.push(['Fecha', 'Horario', 'Evento', 'Lugar / Modalidad']);
 
-  // Filas desde la tabla (respeta ediciones manuales)
+  // Filas de datos
+  const dataStartRow = pers ? 6 : 5;
   document.querySelectorAll('#agenda-body tr').forEach(row => {
     const cells = [...row.querySelectorAll('td')].map(c => c.innerText.replace(/\n/g,' ').trim());
     wsData.push(cells);
@@ -520,61 +524,96 @@ function exportExcel() {
   const ws = XLSX.utils.aoa_to_sheet(wsData);
 
   // Anchos de columna
-  ws['!cols'] = [{ wch: 14 }, { wch: 14 }, { wch: 50 }, { wch: 24 }];
+  ws['!cols'] = [{ wch: 13 }, { wch: 11 }, { wch: 48 }, { wch: 22 }];
 
-  // Calcular fila de headers (1-indexed para xlsx)
-  // Filas: titulo(1), periodo(2), [persona(3) si hay], vacia, headers
-  const headerRowIdx = pers ? 5 : 4;
+  const R = XLSX.utils.decode_range(ws['!ref']);
+  const totalRows = R.e.r + 1;
 
-  // Estilo fila título (fila 1)
-  const titleCell = ws['A1'];
-  if (titleCell) titleCell.s = {
-    font: { bold: true, sz: 13, color: { rgb: 'FFFFFF' } },
+  // Merge fila título y período
+  if (!ws['!merges']) ws['!merges'] = [];
+  ws['!merges'].push({ s:{r:0,c:0}, e:{r:0,c:3} }); // título
+  ws['!merges'].push({ s:{r:1,c:0}, e:{r:1,c:3} }); // período
+  if (pers) ws['!merges'].push({ s:{r:2,c:0}, e:{r:2,c:3} }); // persona
+
+  const headerRowIdx = dataStartRow - 1; // 0-indexed
+
+  // Estilo helper
+  function cellRef(col, row) { return XLSX.utils.encode_cell({c: col, r: row}); }
+
+  // Estilo fila título (row 0)
+  const c0 = ws[cellRef(0,0)];
+  if (c0) c0.s = {
     fill: { fgColor: { rgb: '1B3A6B' } },
+    font: { bold: true, sz: 14, color: { rgb: 'FFFFFF' }, name: 'Calibri' },
     alignment: { horizontal: 'left', vertical: 'center' }
   };
 
-  // Estilo fila headers
-  ['A','B','C','D'].forEach(col => {
-    const cell = ws[col + headerRowIdx];
-    if (cell) cell.s = {
-      fill: { fgColor: { rgb: '2B5190' } },
-      font: { color: { rgb: 'FFFFFF' }, bold: true, sz: 11 },
-      alignment: { horizontal: 'center', vertical: 'center', wrapText: true },
-      border: {
-        bottom: { style: 'medium', color: { rgb: '1B3A6B' } }
-      }
-    };
-  });
+  // Estilo fila período (row 1)
+  const c1 = ws[cellRef(0,1)];
+  if (c1) c1.s = {
+    fill: { fgColor: { rgb: '2B5190' } },
+    font: { sz: 11, color: { rgb: 'DDEAF8' }, name: 'Calibri' },
+    alignment: { horizontal: 'left', vertical: 'center' }
+  };
 
-  // Estilo filas de datos
-  const totalRows = wsData.length;
-  for (let r = headerRowIdx + 1; r <= totalRows; r++) {
-    const isEven = (r - headerRowIdx) % 2 === 0;
-    ['A','B','C','D'].forEach(col => {
-      const cell = ws[col + r];
-      if (cell) cell.s = {
-        fill: { fgColor: { rgb: isEven ? 'EEF3FB' : 'FFFFFF' } },
-        font: { sz: 10 },
-        alignment: { vertical: 'center', wrapText: true },
-        border: {
-          bottom: { style: 'thin', color: { rgb: 'DDE1E7' } }
-        }
-      };
-    });
+  // Estilo fila persona (row 2 si hay)
+  if (pers) {
+    const c2 = ws[cellRef(0,2)];
+    if (c2) c2.s = {
+      fill: { fgColor: { rgb: '3D6BB5' } },
+      font: { sz: 10, color: { rgb: 'FFFFFF' }, italic: true, name: 'Calibri' },
+      alignment: { horizontal: 'left', vertical: 'center' }
+    };
   }
 
-  // Merge título en A1:D1
-  ws['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 3 } }];
+  // Estilo headers (fila headerRowIdx)
+  const hdrCols = ['Fecha','Horario','Evento','Lugar / Modalidad'];
+  for (let c = 0; c < 4; c++) {
+    const cell = ws[cellRef(c, headerRowIdx)];
+    if (cell) cell.s = {
+      fill: { fgColor: { rgb: '1B3A6B' } },
+      font: { bold: true, sz: 11, color: { rgb: 'FFFFFF' }, name: 'Calibri' },
+      alignment: { horizontal: 'center', vertical: 'center' },
+      border: {
+        top:    { style: 'thin', color: { rgb: 'FFFFFF' } },
+        bottom: { style: 'medium', color: { rgb: '8AAFD4' } },
+        left:   { style: 'thin', color: { rgb: '2B5190' } },
+        right:  { style: 'thin', color: { rgb: '2B5190' } }
+      }
+    };
+  }
 
-  // Alto de filas
+  // Estilo filas de datos
+  for (let r = headerRowIdx + 1; r < totalRows; r++) {
+    const isEven = (r - headerRowIdx) % 2 === 0;
+    const bgColor = isEven ? 'EBF2FB' : 'FFFFFF';
+    for (let c = 0; c < 4; c++) {
+      const cell = ws[cellRef(c, r)];
+      if (!cell) {
+        // Crear celda vacía con estilo
+        ws[cellRef(c, r)] = { v: '', t: 's', s: {} };
+      }
+      ws[cellRef(c, r)].s = {
+        fill: { fgColor: { rgb: bgColor } },
+        font: { sz: 10, name: 'Calibri' },
+        alignment: { vertical: 'center', wrapText: c === 2 },
+        border: {
+          bottom: { style: 'thin', color: { rgb: 'C5D5E8' } },
+          left:   { style: 'thin', color: { rgb: 'DDE6F0' } },
+          right:  { style: 'thin', color: { rgb: 'DDE6F0' } }
+        }
+      };
+    }
+  }
+
+  // Altos de fila
   ws['!rows'] = [];
-  ws['!rows'][0] = { hpt: 24 };
-  ws['!rows'][headerRowIdx - 1] = { hpt: 20 };
+  ws['!rows'][0] = { hpt: 26 };
+  ws['!rows'][1] = { hpt: 18 };
+  if (pers) ws['!rows'][2] = { hpt: 16 };
+  ws['!rows'][headerRowIdx] = { hpt: 20 };
 
   XLSX.utils.book_append_sheet(wb, ws, 'Agenda');
   XLSX.writeFile(wb, 'agenda-la-anonima.xlsx');
 }
 </script>
-</body>
-</html>
