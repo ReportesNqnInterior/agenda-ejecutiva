@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Agenda Ejecutiva · La Anónima</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --blue:       #1B3A6B;
+  --blue-mid:   #2B5190;
+  --blue-light: #EBF0F8;
+  --blue-hover: #163060;
+  --gray-1:     #F4F5F7;
+  --gray-2:     #DDE1E7;
+  --gray-3:     #8A92A0;
+  --text:       #1A1E27;
+  --text-muted: #606672;
+  --border:     #DDE1E7;
+  --white:      #FFFFFF;
+  --radius:     8px;
+  --radius-lg:  12px;
+}
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+  background: #F0F2F5;
+  color: var(--text);
+  min-height: 100vh;
+  padding: 1.5rem 1rem;
+}
+.container { max-width: 840px; margin: 0 auto; }
+
+.header {
+  display: flex; align-items: center; gap: 14px;
+  background: var(--blue); border-radius: var(--radius-lg);
+  padding: 16px 20px; margin-bottom: 1.5rem;
+}
+.logo-box {
+  width: 46px; height: 46px; background: white; border-radius: 6px;
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 700; font-size: 9px; color: var(--blue);
+  text-align: center; line-height: 1.3; flex-shrink: 0; letter-spacing: 0.3px;
+}
+.header-text h1 { color: white; font-size: 16px; font-weight: 600; }
+.header-text p  { color: rgba(255,255,255,0.65); font-size: 12px; margin-top: 3px; }
+
+.card {
+  background: var(--white); border: 1px solid var(--border);
+  border-radius: var(--radius-lg); padding: 1.25rem; margin-bottom: 1rem;
+}
+.card-title {
+  font-size: 11px; font-weight: 600; color: var(--gray-3);
+  text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 1rem;
+}
+
+.notice {
+  background: var(--blue-light); border: 1px solid #C2CEE5;
+  border-radius: var(--radius); padding: 10px 14px;
+  font-size: 12px; color: var(--blue); margin-bottom: 1rem; line-height: 1.5;
+}
+.notice strong { display: block; margin-bottom: 3px; }
+.notice a { color: var(--blue-mid); }
+
+.form-group { margin-top: 0.75rem; }
+.form-group label { display: block; font-size: 12px; color: var(--text-muted); margin-bottom: 4px; }
+.form-group input {
+  width: 100%; padding: 8px 12px; border: 1px solid var(--border);
+  border-radius: var(--radius); font-size: 13px; color: var(--text);
+  background: var(--white); outline: none; transition: border-color 0.15s;
+}
+.form-group input:focus { border-color: var(--blue-mid); }
+
+.btn-primary {
+  background: var(--blue); color: white; border: none;
+  padding: 10px 20px; border-radius: var(--radius);
+  font-size: 13px; font-weight: 500; cursor: pointer;
+  display: inline-flex; align-items: center; gap: 8px;
+  margin-top: 1rem; transition: background 0.15s;
+}
+.btn-primary:hover { background: var(--blue-hover); }
+.btn-primary:disabled { opacity: 0.45; cursor: not-allowed; }
+
+.btn-secondary {
+  background: var(--white); color: var(--text); border: 1px solid var(--border);
+  padding: 7px 14px; border-radius: var(--radius); font-size: 13px; cursor: pointer;
+  display: inline-flex; align-items: center; gap: 6px; transition: background 0.12s;
+}
+.btn-secondary:hover { background: var(--gray-1); }
+
+.btn-save {
+  background: var(--gray-1); color: var(--text); border: 1px solid var(--border);
+  padding: 7px 14px; border-radius: var(--radius);
+  font-size: 13px; cursor: pointer; margin-top: 8px; transition: background 0.12s;
+}
+.btn-save:hover { background: var(--gray-2); }
+.key-saved { font-size: 12px; color: #2E7D32; margin-left: 10px; display: none; }
+
+.upload-zone {
+  border: 2px dashed var(--gray-2); border-radius: var(--radius);
+  padding: 2.25rem 1rem; text-align: center; cursor: pointer;
+  transition: border-color 0.15s, background 0.15s; background: var(--gray-1);
+}
+.upload-zone:hover, .upload-zone.dragover {
+  border-color: var(--blue-mid); background: var(--blue-light);
+}
+.upload-zone svg {
+  width: 36px; height: 36px; color: var(--blue-mid);
+  margin: 0 auto 10px; display: block;
+}
+.upload-zone p { font-size: 14px; color: var(--text-muted); }
+.upload-zone strong { color: var(--text); }
+
+#preview-img {
+  max-width: 100%; border-radius: var(--radius);
+  border: 1px solid var(--border); margin-top: 1rem; display: none;
+}
+
+.loading {
+  display: none; align-items: center; gap: 10px;
+  padding: 0.75rem 0; color: var(--text-muted); font-size: 13px;
+}
+.spinner {
+  width: 18px; height: 18px;
+  border: 2px solid var(--gray-2); border-top-color: var(--blue-mid);
+  border-radius: 50%; animation: spin 0.7s linear infinite; flex-shrink: 0;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.error-box {
+  display: none; background: #FFF3F3; border: 1px solid #F5C2C2;
+  border-radius: var(--radius); padding: 10px 14px;
+  font-size: 13px; color: #7B1F1F; margin-top: 0.75rem;
+}
+
+#result-section { display: none; }
+
+.result-header {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  flex-wrap: wrap; gap: 10px; margin-bottom: 1rem;
+}
+.result-meta h2 { font-size: 15px; font-weight: 600; }
+.result-meta p  { font-size: 13px; color: var(--text-muted); margin-top: 2px; }
+.btn-group { display: flex; gap: 8px; flex-wrap: wrap; }
+
+.table-wrapper { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: 13px; table-layout: fixed; }
+colgroup col:nth-child(1) { width: 90px; }
+colgroup col:nth-child(2) { width: 78px; }
+colgroup col:nth-child(4) { width: 105px; }
+
+thead tr { background: var(--blue); }
+thead th {
+  color: white; padding: 9px 10px; text-align: left;
+  font-weight: 600; font-size: 12px; letter-spacing: 0.2px;
+}
+tbody tr { border-bottom: 1px solid var(--border); }
+tbody tr:last-child { border-bottom: none; }
+tbody tr:nth-child(even) { background: var(--blue-light); }
+tbody td { padding: 8px 10px; vertical-align: middle; word-break: break-word; }
+.td-muted { color: var(--gray-3); }
+
+.badge {
+  display: inline-block; padding: 2px 8px; border-radius: 20px;
+  font-size: 11px; font-weight: 600; margin-top: 3px;
+}
+.badge-imp { background: #FFF0C2; color: #7B5000; }
+.badge-ext { background: #E6F4EA; color: #2E7D32; }
+
+.footer-note {
+  font-size: 11px; color: var(--gray-3); margin-top: 1rem;
+  padding-top: 0.75rem; border-top: 1px solid var(--border);
+  display: flex; justify-content: space-between; flex-wrap: wrap; gap: 4px;
+}
+</style>
+</head>
+<body>
+<div class="container">
+
+  <div class="header">
+    <div class="logo-box">LA<br>ANÓNIMA</div>
+    <div class="header-text">
+      <h1>Agenda ejecutiva</h1>
+      <p>Visor de calendario corporativo · NQN Interior</p>
+    </div>
+  </div>
+
+  <div class="notice">
+    <strong>Configuración inicial (una sola vez)</strong>
+    Pegá tu API key de Anthropic abajo. Se guarda solo en este navegador.
+    Obtené la tuya en <a href="https://console.anthropic.com/keys" target="_blank">console.anthropic.com/keys</a>.
+  </div>
+
+  <div class="card">
+    <div class="card-title">Configuración</div>
+    <div class="form-group">
+      <label>API Key de Anthropic</label>
+      <input type="password" id="api-key-input" placeholder="sk-ant-api03-..." autocomplete="off">
+    </div>
+    <button class="btn-save" onclick="saveKey()">Guardar key</button>
+    <span class="key-saved" id="key-saved">✓ Guardada</span>
+  </div>
+
+  <div class="card" id="upload-section">
+    <div class="card-title">Screenshot de Outlook</div>
+    <div class="upload-zone" id="drop-zone" onclick="document.getElementById('file-input').click()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="3" y="3" width="18" height="18" rx="2"/>
+        <path d="M3 9h18M9 21V9"/>
+      </svg>
+      <p><strong>Subí un screenshot</strong> de la agenda de Outlook</p>
+      <p style="margin-top:4px;font-size:12px;">Clic para seleccionar · o arrastrá la imagen acá</p>
+    </div>
+    <input type="file" id="file-input" accept="image/*" style="display:none">
+    <img id="preview-img" alt="Vista previa">
+
+    <div class="form-group" style="margin-top:1rem">
+      <label>Nombre / cargo (opcional)</label>
+      <input type="text" id="person-input" placeholder="Ej: Gerente Regional · Roberto García">
+    </div>
+
+    <button class="btn-primary" id="analyze-btn" disabled onclick="analyzeImage()">
+      ✦ Extraer agenda con IA
+    </button>
+    <div class="error-box" id="error-box"></div>
+  </div>
+
+  <div class="loading" id="loading">
+    <div class="spinner"></div>
+    <span>Analizando imagen con IA...</span>
+  </div>
+
+  <div id="result-section">
+    <div class="card">
+      <div class="result-header">
+        <div class="result-meta">
+          <h2 id="agenda-title">Agenda</h2>
+          <p id="agenda-person"></p>
+        </div>
+        <div class="btn-group">
+          <button class="btn-secondary" onclick="resetApp()">← Nueva</button>
+          <button class="btn-secondary" onclick="exportPDF()">⬇ PDF</button>
+          <button class="btn-secondary" id="copy-btn" onclick="copyTable()">⎘ Copiar</button>
+        </div>
+      </div>
+
+      <div class="table-wrapper">
+        <table id="agenda-table">
+          <colgroup><col><col><col><col></colgroup>
+          <thead>
+            <tr>
+              <th>Fecha</th>
+              <th>Horario</th>
+              <th>Evento</th>
+              <th>Lugar / Modalidad</th>
+            </tr>
+          </thead>
+          <tbody id="agenda-body"></tbody>
+        </table>
+      </div>
+
+      <div class="footer-note">
+        <span>La Anónima S.A. · NQN Interior</span>
+        <span id="gen-date"></span>
+      </div>
+    </div>
+  </div>
+
+</div>
+<script>
+const fileInput   = document.getElementById('file-input');
+const analyzeBtn  = document.getElementById('analyze-btn');
+const previewImg  = document.getElementById('preview-img');
+const dropZone    = document.getElementById('drop-zone');
+const apiKeyInput = document.getElementById('api-key-input');
+
+let base64Data = '';
+let base64MediaType = 'image/png';
+
+const savedKey = localStorage.getItem('la_agenda_api_key');
+if (savedKey) apiKeyInput.value = savedKey;
+
+function saveKey() {
+  const k = apiKeyInput.value.trim();
+  if (!k) return;
+  localStorage.setItem('la_agenda_api_key', k);
+  const msg = document.getElementById('key-saved');
+  msg.style.display = 'inline';
+  setTimeout(() => msg.style.display = 'none', 2000);
+}
+
+fileInput.addEventListener('change', e => {
+  if (e.target.files[0]) loadFile(e.target.files[0]);
+});
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('dragover'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+dropZone.addEventListener('drop', e => {
+  e.preventDefault(); dropZone.classList.remove('dragover');
+  const f = e.dataTransfer.files[0];
+  if (f && f.type.startsWith('image/')) loadFile(f);
+});
+
+function loadFile(file) {
+  base64MediaType = file.type || 'image/png';
+  const reader = new FileReader();
+  reader.onload = ev => {
+    base64Data = ev.result.split(',')[1];
+    previewImg.src = ev.result;
+    previewImg.style.display = 'block';
+    analyzeBtn.disabled = false;
+    document.getElementById('error-box').style.display = 'none';
+  };
+  reader.readAsDataURL(file);
+}
+
+async function analyzeImage() {
+  const apiKey = apiKeyInput.value.trim() || localStorage.getItem('la_agenda_api_key');
+  if (!apiKey) { showError('Guardá tu API key de Anthropic primero.'); return; }
+  if (!base64Data) return;
+
+  analyzeBtn.disabled = true;
+  document.getElementById('loading').style.display = 'flex';
+  document.getElementById('error-box').style.display = 'none';
+
+  const personName = document.getElementById('person-input').value.trim();
+
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true'
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-6',
+        max_tokens: 1500,
+        system: `Sos un asistente que extrae eventos de capturas de pantalla de calendarios de Outlook.
+Devolvé SOLO un JSON válido, sin texto adicional, sin backticks, sin markdown.
+Formato exacto:
+{
+  "periodo": "texto del periodo visible (ej: Semana del 9 al 13 de junio 2025)",
+  "eventos": [
+    {
+      "fecha": "Lun 9 jun",
+      "hora": "09:00 - 10:00",
+      "titulo": "Nombre del evento",
+      "lugar": "Sala / Teams / vacio",
+      "tipo": "importante|normal|externo"
+    }
+  ]
+}
+Si no hay lugar visible deja lugar vacio "". Tipo: "importante" para eventos destacados, "externo" para reuniones con personas de afuera, "normal" para el resto.
+Si no podes leer la imagen devolvé {"error": "No se pudo leer el calendario"}.`,
+        messages: [{
+          role: 'user',
+          content: [
+            { type: 'image', source: { type: 'base64', media_type: base64MediaType, data: base64Data } },
+            { type: 'text', text: 'Extraé todos los eventos visibles en esta captura de calendario de Outlook.' }
+          ]
+        }]
+      })
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error?.message || 'Error ' + res.status);
+    }
+
+    const data = await res.json();
+    const text = data.content.map(i => i.text || '').join('').trim();
+    const parsed = JSON.parse(text.replace(/```json|```/g, '').trim());
+    if (parsed.error) throw new Error(parsed.error);
+    renderResult(parsed, personName);
+
+  } catch (err) {
+    showError('No se pudo procesar la imagen. ' + err.message);
+    analyzeBtn.disabled = false;
+  } finally {
+    document.getElementById('loading').style.display = 'none';
+  }
+}
+
+function renderResult(parsed, personName) {
+  document.getElementById('upload-section').style.display = 'none';
+  document.getElementById('result-section').style.display = 'block';
+  document.getElementById('agenda-title').textContent = parsed.periodo || 'Agenda';
+  document.getElementById('agenda-person').textContent = personName ? 'Agenda de: ' + personName : '';
+  document.getElementById('gen-date').textContent = new Date().toLocaleDateString('es-AR', { day:'2-digit', month:'long', year:'numeric' });
+
+  const tbody = document.getElementById('agenda-body');
+  tbody.innerHTML = '';
+  const eventos = parsed.eventos || [];
+
+  if (!eventos.length) {
+    tbody.innerHTML = '<tr><td colspan="4" style="padding:1.25rem;color:#8A92A0;text-align:center;">No se encontraron eventos en la imagen.</td></tr>';
+    return;
+  }
+
+  eventos.forEach(ev => {
+    const tr = document.createElement('tr');
+    let badge = '';
+    if (ev.tipo === 'importante') badge = '<br><span class="badge badge-imp">Importante</span>';
+    if (ev.tipo === 'externo')    badge = '<br><span class="badge badge-ext">Externo</span>';
+    tr.innerHTML = `
+      <td>${ev.fecha  || ''}</td>
+      <td>${ev.hora   || ''}</td>
+      <td>${ev.titulo || ''}${badge}</td>
+      <td class="${ev.lugar ? '' : 'td-muted'}">${ev.lugar || '—'}</td>`;
+    tbody.appendChild(tr);
+  });
+}
+
+function showError(msg) {
+  const b = document.getElementById('error-box');
+  b.textContent = msg; b.style.display = 'block';
+}
+
+function resetApp() {
+  base64Data = '';
+  previewImg.style.display = 'none'; previewImg.src = '';
+  analyzeBtn.disabled = true;
+  document.getElementById('upload-section').style.display = 'block';
+  document.getElementById('result-section').style.display = 'none';
+  document.getElementById('error-box').style.display = 'none';
+  document.getElementById('person-input').value = '';
+  fileInput.value = '';
+}
+
+function copyTable() {
+  const t = document.getElementById('agenda-table');
+  if (!t) return;
+  let text = '';
+  t.querySelectorAll('tr').forEach(row => {
+    const cells = [...row.querySelectorAll('th,td')].map(c => c.innerText.replace(/\n/g,' ').trim());
+    text += cells.join('\t') + '\n';
+  });
+  navigator.clipboard.writeText(text).then(() => {
+    const btn = document.getElementById('copy-btn');
+    const orig = btn.textContent;
+    btn.textContent = '✓ Copiado';
+    setTimeout(() => btn.textContent = orig, 1800);
+  });
+}
+
+function exportPDF() {
+  const { jsPDF } = window.jspdf;
+  if (!jsPDF) { alert('jsPDF no cargó. Verificá tu conexión.'); return; }
+
+  const doc  = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+  const ttl  = document.getElementById('agenda-title').textContent;
+  const pers = document.getElementById('agenda-person').textContent;
+  const date = document.getElementById('gen-date').textContent;
+
+  doc.setFillColor(27, 58, 107);
+  doc.rect(0, 0, 297, 20, 'F');
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(13); doc.setFont(undefined, 'bold');
+  doc.text('La Anonima S.A.  ·  Agenda ejecutiva', 12, 11);
+  doc.setFont(undefined, 'normal'); doc.setFontSize(9);
+  doc.text(ttl, 12, 17);
+
+  let y = 28;
+  if (pers) {
+    doc.setTextColor(60, 60, 80); doc.setFontSize(10);
+    doc.text(pers, 12, y); y += 7;
+  }
+
+  const colX = [12, 50, 88, 218];
+  const colW = [36, 36, 128, 57];
+  const headers = ['Fecha','Horario','Evento','Lugar / Modalidad'];
+
+  doc.setFillColor(27, 58, 107);
+  doc.rect(12, y - 1, 273, 8, 'F');
+  doc.setTextColor(255,255,255); doc.setFontSize(9); doc.setFont(undefined,'bold');
+  headers.forEach((h,i) => doc.text(h, colX[i], y + 5));
+  y += 10;
+
+  doc.setFont(undefined,'normal');
+  let even = false;
+  document.querySelectorAll('#agenda-body tr').forEach(row => {
+    const cells = [...row.querySelectorAll('td')].map(c => c.innerText.replace(/\n/g,' ').trim());
+    if (even) { doc.setFillColor(235, 240, 248); doc.rect(12, y-2, 273, 8, 'F'); }
+    even = !even;
+    doc.setTextColor(25,30,40); doc.setFontSize(8.5);
+    cells.forEach((c,i) => {
+      const lines = doc.splitTextToSize(c, colW[i]-2);
+      doc.text(lines[0]||'', colX[i], y+4);
+    });
+    doc.setDrawColor(210,215,225);
+    doc.line(12, y+6, 285, y+6);
+    y += 8;
+    if (y > 192) { doc.addPage(); y = 15; }
+  });
+
+  doc.setTextColor(150,155,165); doc.setFontSize(7);
+  doc.text('La Anonima S.A. · NQN Interior · ' + date, 12, 200);
+  doc.save('agenda-la-anonima.pdf');
+}
+</script>
+</body>
+</html>
