@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Agenda Ejecutiva · La Anónima</title>
-<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
 <style>
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 :root {
@@ -493,127 +493,106 @@ function copyTable() {
 }
 
 function exportExcel() {
-  if (!window.XLSX) { alert('XLSX no cargó. Verificá tu conexión.'); return; }
+  if (!window.ExcelJS) { alert('ExcelJS no cargó. Verificá tu conexión.'); return; }
 
   const ttl  = (document.getElementById('agenda-title')  || {}).textContent || 'Agenda';
   const pers = (document.getElementById('agenda-person') || {}).textContent || '';
-  const date = new Date().toLocaleDateString('es-AR', { day:'2-digit', month:'long', year:'numeric' });
 
-  const wb = XLSX.utils.book_new();
-  const wsData = [];
-
-  // Fila 1: título institucional
-  wsData.push(['LA ANÓNIMA S.A.  ·  Agenda Ejecutiva', '', '', '']);
-  // Fila 2: período
-  wsData.push([ttl, '', '', '']);
-  // Fila 3: persona (si hay)
-  if (pers) wsData.push([pers, '', '', '']);
-  // Fila vacía
-  wsData.push(['', '', '', '']);
-
-  // Headers
-  wsData.push(['Fecha', 'Horario', 'Evento', 'Lugar / Modalidad']);
-
-  // Filas de datos
-  const dataStartRow = pers ? 6 : 5;
-  document.querySelectorAll('#agenda-body tr').forEach(row => {
-    const cells = [...row.querySelectorAll('td')].map(c => c.innerText.replace(/\n/g,' ').trim());
-    wsData.push(cells);
-  });
-
-  const ws = XLSX.utils.aoa_to_sheet(wsData);
+  const wb = new ExcelJS.Workbook();
+  wb.creator = 'La Anónima S.A.';
+  const ws = wb.addWorksheet('Agenda', { pageSetup: { orientation: 'landscape' } });
 
   // Anchos de columna
-  ws['!cols'] = [{ wch: 13 }, { wch: 11 }, { wch: 48 }, { wch: 22 }];
+  ws.columns = [
+    { width: 14 },
+    { width: 11 },
+    { width: 50 },
+    { width: 24 }
+  ];
 
-  const R = XLSX.utils.decode_range(ws['!ref']);
-  const totalRows = R.e.r + 1;
+  const AZUL_OSC  = '1B3A6B';
+  const AZUL_MED  = '2B5190';
+  const AZUL_CLAR = '3D6BB5';
+  const BLANCO    = 'FFFFFF';
+  const CELESTE   = 'EBF2FB';
+  const GRIS_BRD  = 'C5D5E8';
 
-  // Merge fila título y período
-  if (!ws['!merges']) ws['!merges'] = [];
-  ws['!merges'].push({ s:{r:0,c:0}, e:{r:0,c:3} }); // título
-  ws['!merges'].push({ s:{r:1,c:0}, e:{r:1,c:3} }); // período
-  if (pers) ws['!merges'].push({ s:{r:2,c:0}, e:{r:2,c:3} }); // persona
+  function fillStyle(rgb) { return { type:'pattern', pattern:'solid', fgColor:{ argb:'FF'+rgb } }; }
+  function fontStyle(rgb, sz, bold, italic) { return { name:'Calibri', size: sz||10, color:{ argb:'FF'+rgb }, bold:!!bold, italic:!!italic }; }
+  function border(color) {
+    const b = { style:'thin', color:{ argb:'FF'+(color||GRIS_BRD) } };
+    return { top:b, bottom:b, left:b, right:b };
+  }
 
-  const headerRowIdx = dataStartRow - 1; // 0-indexed
+  // Fila 1: título
+  const r1 = ws.addRow(['LA ANÓNIMA S.A.  ·  Agenda Ejecutiva', '', '', '']);
+  ws.mergeCells(1,1,1,4);
+  r1.height = 26;
+  r1.getCell(1).fill = fillStyle(AZUL_OSC);
+  r1.getCell(1).font = fontStyle(BLANCO, 14, true);
+  r1.getCell(1).alignment = { vertical:'middle', horizontal:'left', indent:1 };
 
-  // Estilo helper
-  function cellRef(col, row) { return XLSX.utils.encode_cell({c: col, r: row}); }
+  // Fila 2: período
+  const r2 = ws.addRow([ttl, '', '', '']);
+  ws.mergeCells(2,1,2,4);
+  r2.height = 18;
+  r2.getCell(1).fill = fillStyle(AZUL_MED);
+  r2.getCell(1).font = fontStyle('DDEAF8', 11);
+  r2.getCell(1).alignment = { vertical:'middle', horizontal:'left', indent:1 };
 
-  // Estilo fila título (row 0)
-  const c0 = ws[cellRef(0,0)];
-  if (c0) c0.s = {
-    fill: { fgColor: { rgb: '1B3A6B' } },
-    font: { bold: true, sz: 14, color: { rgb: 'FFFFFF' }, name: 'Calibri' },
-    alignment: { horizontal: 'left', vertical: 'center' }
-  };
-
-  // Estilo fila período (row 1)
-  const c1 = ws[cellRef(0,1)];
-  if (c1) c1.s = {
-    fill: { fgColor: { rgb: '2B5190' } },
-    font: { sz: 11, color: { rgb: 'DDEAF8' }, name: 'Calibri' },
-    alignment: { horizontal: 'left', vertical: 'center' }
-  };
-
-  // Estilo fila persona (row 2 si hay)
+  // Fila 3: persona (si hay)
+  let dataStartRow = 5;
   if (pers) {
-    const c2 = ws[cellRef(0,2)];
-    if (c2) c2.s = {
-      fill: { fgColor: { rgb: '3D6BB5' } },
-      font: { sz: 10, color: { rgb: 'FFFFFF' }, italic: true, name: 'Calibri' },
-      alignment: { horizontal: 'left', vertical: 'center' }
-    };
+    const r3 = ws.addRow([pers, '', '', '']);
+    ws.mergeCells(3,1,3,4);
+    r3.height = 16;
+    r3.getCell(1).fill = fillStyle(AZUL_CLAR);
+    r3.getCell(1).font = fontStyle(BLANCO, 10, false, true);
+    r3.getCell(1).alignment = { vertical:'middle', horizontal:'left', indent:1 };
+    dataStartRow = 6;
   }
 
-  // Estilo headers (fila headerRowIdx)
-  const hdrCols = ['Fecha','Horario','Evento','Lugar / Modalidad'];
-  for (let c = 0; c < 4; c++) {
-    const cell = ws[cellRef(c, headerRowIdx)];
-    if (cell) cell.s = {
-      fill: { fgColor: { rgb: '1B3A6B' } },
-      font: { bold: true, sz: 11, color: { rgb: 'FFFFFF' }, name: 'Calibri' },
-      alignment: { horizontal: 'center', vertical: 'center' },
-      border: {
-        top:    { style: 'thin', color: { rgb: 'FFFFFF' } },
-        bottom: { style: 'medium', color: { rgb: '8AAFD4' } },
-        left:   { style: 'thin', color: { rgb: '2B5190' } },
-        right:  { style: 'thin', color: { rgb: '2B5190' } }
-      }
-    };
-  }
+  // Fila vacía
+  ws.addRow([]);
 
-  // Estilo filas de datos
-  for (let r = headerRowIdx + 1; r < totalRows; r++) {
-    const isEven = (r - headerRowIdx) % 2 === 0;
-    const bgColor = isEven ? 'EBF2FB' : 'FFFFFF';
-    for (let c = 0; c < 4; c++) {
-      const cell = ws[cellRef(c, r)];
-      if (!cell) {
-        // Crear celda vacía con estilo
-        ws[cellRef(c, r)] = { v: '', t: 's', s: {} };
-      }
-      ws[cellRef(c, r)].s = {
-        fill: { fgColor: { rgb: bgColor } },
-        font: { sz: 10, name: 'Calibri' },
-        alignment: { vertical: 'center', wrapText: c === 2 },
-        border: {
-          bottom: { style: 'thin', color: { rgb: 'C5D5E8' } },
-          left:   { style: 'thin', color: { rgb: 'DDE6F0' } },
-          right:  { style: 'thin', color: { rgb: 'DDE6F0' } }
-        }
+  // Headers
+  const hdrRow = ws.addRow(['Fecha', 'Horario', 'Evento', 'Lugar / Modalidad']);
+  hdrRow.height = 20;
+  hdrRow.eachCell(cell => {
+    cell.fill = fillStyle(AZUL_OSC);
+    cell.font = fontStyle(BLANCO, 11, true);
+    cell.alignment = { vertical:'middle', horizontal:'center' };
+    cell.border = { bottom:{ style:'medium', color:{ argb:'FF8AAFD4' } } };
+  });
+
+  // Filas de datos
+  let rowIdx = 0;
+  document.querySelectorAll('#agenda-body tr').forEach(row => {
+    const cells = [...row.querySelectorAll('td')].map(c => c.innerText.replace(/\n/g,' ').trim());
+    const dr = ws.addRow(cells);
+    dr.height = 16;
+    const isEven = rowIdx % 2 === 0;
+    dr.eachCell({ includeEmpty: true }, (cell, colNum) => {
+      cell.fill = fillStyle(isEven ? CELESTE : BLANCO);
+      cell.font = fontStyle('1A1E27', 10);
+      cell.alignment = { vertical:'middle', wrapText: colNum === 3 };
+      cell.border = {
+        bottom: { style:'thin', color:{ argb:'FF'+GRIS_BRD } },
+        left:   { style:'thin', color:{ argb:'FFDDE6F0' } },
+        right:  { style:'thin', color:{ argb:'FFDDE6F0' } }
       };
-    }
-  }
+    });
+    rowIdx++;
+  });
 
-  // Altos de fila
-  ws['!rows'] = [];
-  ws['!rows'][0] = { hpt: 26 };
-  ws['!rows'][1] = { hpt: 18 };
-  if (pers) ws['!rows'][2] = { hpt: 16 };
-  ws['!rows'][headerRowIdx] = { hpt: 20 };
-
-  XLSX.utils.book_append_sheet(wb, ws, 'Agenda');
-  XLSX.writeFile(wb, 'agenda-la-anonima.xlsx');
+  // Descargar
+  wb.xlsx.writeBuffer().then(buffer => {
+    const blob = new Blob([buffer], { type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = 'agenda-la-anonima.xlsx';
+    document.body.appendChild(a); a.click();
+    setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 100);
+  }).catch(e => alert('Error al generar Excel: ' + e.message));
 }
 </script>
