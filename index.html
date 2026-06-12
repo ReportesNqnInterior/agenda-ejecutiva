@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Agenda Ejecutiva · La Anónima</title>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://unpkg.com/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 <style>
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 :root {
@@ -341,24 +341,8 @@ async function analyzeImage() {
       },
       body: JSON.stringify({
         model: 'claude-sonnet-4-6',
-        max_tokens: 1500,
-        system: `Sos un asistente que extrae eventos de capturas de pantalla de calendarios de Outlook.
-Devolvé SOLO un JSON válido, sin texto adicional, sin backticks, sin markdown.
-Formato exacto:
-{
-  "periodo": "texto del periodo visible (ej: Semana del 9 al 13 de junio 2025)",
-  "eventos": [
-    {
-      "fecha": "Lun 9 jun",
-      "hora": "09:00 - 10:00",
-      "titulo": "Nombre del evento",
-      "lugar": "Sala / Teams / vacio",
-      "tipo": "importante|normal|externo"
-    }
-  ]
-}
-Si no hay lugar visible deja lugar vacio "". Tipo: "importante" para eventos destacados, "externo" para reuniones con personas de afuera, "normal" para el resto.
-Si no podes leer la imagen devolvé {"error": "No se pudo leer el calendario"}.`,
+        max_tokens: 2500,
+        system: `Sos un asistente que extrae eventos de capturas de pantalla de calendarios de Outlook. Devolvé SOLO un JSON valido, sin texto adicional, sin backticks, sin markdown, sin comentarios. IMPORTANTE: dentro de los strings no uses comillas dobles, usa comillas simples si hace falta. Formato exacto: {"periodo":"Semana del 9 al 13 de junio 2025","eventos":[{"fecha":"Lun 9 jun","hora":"09:00 - 10:00","titulo":"Nombre del evento","lugar":"Sala o Teams o vacio","tipo":"normal"}]} Valores validos para tipo: importante, externo, normal. Si no hay lugar visible deja lugar como string vacio. Si no podes leer la imagen devolvé exactamente: {"error":"No se pudo leer el calendario"}`,
         messages: [{
           role: 'user',
           content: [
@@ -375,8 +359,12 @@ Si no podes leer la imagen devolvé {"error": "No se pudo leer el calendario"}.`
     }
 
     const data = await res.json();
-    const text = data.content.map(i => i.text || '').join('').trim();
-    const parsed = JSON.parse(text.replace(/```json|```/g, '').trim());
+    let text = data.content.map(i => i.text || '').join('').trim();
+    text = text.replace(/```json|```/g, '').trim();
+    // Extraer el JSON aunque haya texto extra antes o después
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) throw new Error('La IA no devolvió un JSON válido. Intentá con otra imagen.');
+    const parsed = JSON.parse(jsonMatch[0]);
     if (parsed.error) throw new Error(parsed.error);
     renderResult(parsed, personName);
 
